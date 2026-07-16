@@ -29,7 +29,7 @@ export default function SelectedCandidatesPage() {
           "Location",
           "Interview Date",
           "Joining Date",
-          "Selected Date",
+          "Invoice Date",
           "Actions",
         ]}
       >

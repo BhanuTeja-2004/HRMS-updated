@@ -282,7 +282,8 @@ export default function CRMPage() {
                 "CTC",
                 "Take-home",
                 "Invoice",
-                "Clause",
+                "Clause Days",
+                "Added On",
                 "Calls",
                 "Timer",
                 "Actions",
@@ -381,7 +382,10 @@ export default function CRMPage() {
                   {r.invoiceDate ? formatDate(r.invoiceDate) : "—"}
                 </td>
                 <td className="whitespace-nowrap px-3 py-2.5">
-                  {r.clauseDate ? formatDate(r.clauseDate) : "—"}
+                  {r.clauseDate ? `${r.clauseDate} days` : "—"}
+                </td>
+                <td className="whitespace-nowrap px-3 py-2.5 text-xs text-gray-600">
+                  {new Date(r.addedAt).toLocaleString("en-GB", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })}
                 </td>
                 <td className="px-3 py-2.5">{r.calls}</td>
                 <td className="whitespace-nowrap px-3 py-2.5">
@@ -586,7 +590,7 @@ export default function CRMPage() {
           <Input label="CTC" placeholder="e.g., 2.4 LPA" value={form.ctc} onChange={(e) => setForm({ ...form, ctc: e.target.value })} />
           <Input label="Take-home Salary" placeholder="e.g., 18500" value={form.takeHome} onChange={(e) => setForm({ ...form, takeHome: e.target.value })} />
           <Input label="Invoice Date" type="date" value={form.invoiceDate} onChange={(e) => setForm({ ...form, invoiceDate: e.target.value })} />
-          <Input label="Clause Date" type="date" value={form.clauseDate} onChange={(e) => setForm({ ...form, clauseDate: e.target.value })} />
+          <Input label="Clause Days" type="number" placeholder="e.g. 45" value={form.clauseDate} onChange={(e) => setForm({ ...form, clauseDate: e.target.value })} />
           <div className="sm:col-span-2 space-y-1.5">
             <label className="block text-sm font-semibold">Remarks</label>
             <textarea
@@ -642,7 +646,7 @@ export default function CRMPage() {
           <Input label="Interview Date" type="date" value={form.interviewDate} onChange={(e) => setForm({ ...form, interviewDate: e.target.value })} />
           <Input label="DOJ" type="date" value={form.doj} onChange={(e) => setForm({ ...form, doj: e.target.value })} />
           <Input label="Invoice Date" type="date" value={form.invoiceDate} onChange={(e) => setForm({ ...form, invoiceDate: e.target.value })} />
-          <Input label="Clause Date" type="date" value={form.clauseDate} onChange={(e) => setForm({ ...form, clauseDate: e.target.value })} />
+          <Input label="Clause Days" type="number" placeholder="e.g. 45" value={form.clauseDate} onChange={(e) => setForm({ ...form, clauseDate: e.target.value })} />
           <div className="sm:col-span-2">
             <Input label="Remarks" value={form.remarks} onChange={(e) => setForm({ ...form, remarks: e.target.value })} />
           </div>
@@ -669,7 +673,7 @@ export default function CRMPage() {
             <p><span className="font-semibold">Interview:</span> {selected.interviewDate || "—"}</p>
             <p><span className="font-semibold">DOJ:</span> {selected.doj || "—"}</p>
             <p><span className="font-semibold">Invoice:</span> {selected.invoiceDate || "—"}</p>
-            <p><span className="font-semibold">Clause:</span> {selected.clauseDate || "—"}</p>
+            <p><span className="font-semibold">Clause Days:</span> {selected.clauseDate ? `${selected.clauseDate} days` : "—"}</p>
             <p className="sm:col-span-2"><span className="font-semibold">Languages:</span> {selected.languages.join(", ")}</p>
             <p className="sm:col-span-2"><span className="font-semibold">Remarks:</span> {selected.remarks || "—"}</p>
             <p className="sm:col-span-2">

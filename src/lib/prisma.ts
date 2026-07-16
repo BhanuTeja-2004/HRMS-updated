@@ -1,18 +1,21 @@
+import { PrismaClient } from "@prisma/client";
+
 /**
- * Prisma client singleton placeholder.
- * Connect MySQL later with: npx prisma init && npx prisma generate
- *
- * DATABASE_URL="mysql://user:pass@localhost:3306/hrms_db"
+ * Prisma client singleton.
+ * Reuses a single instance across hot reloads in development.
  */
+const globalForPrisma = globalThis as unknown as {
+  prisma: PrismaClient | undefined;
+};
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const prisma: any = null;
+export const prisma =
+  globalForPrisma.prisma ??
+  new PrismaClient({
+    log: process.env.NODE_ENV === "development" ? ["error", "warn"] : ["error"],
+  });
 
-export function getPrisma() {
-  if (!prisma) {
-    console.warn("Prisma not configured — using mock data for this demo build.");
-  }
-  return prisma;
+if (process.env.NODE_ENV !== "production") {
+  globalForPrisma.prisma = prisma;
 }
 
-export { prisma };
+export default prisma;

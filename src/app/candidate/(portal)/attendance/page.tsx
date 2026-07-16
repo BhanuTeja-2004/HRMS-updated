@@ -5,14 +5,12 @@ import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { Table } from "@/components/ui/Table";
 import { useUserLabel } from "@/hooks/useAuth";
-import { attendanceHistory as seedHistory } from "@/lib/mock-data";
+import { formatWorkedMinutes } from "@/lib/payroll-calc";
 import { formatDate } from "@/lib/utils";
-import { useEffect, useState } from "react";
+import type { Attendance } from "@/types/payroll";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 type SessionState = "idle" | "working" | "break";
-
-const HISTORY_KEY = "hrms_attendance_history";
-const SESSION_KEY = "hrms_attendance_session";
 
 function formatTimer(totalSeconds: number) {
   const h = Math.floor(totalSeconds / 3600);
@@ -21,35 +19,45 @@ function formatTimer(totalSeconds: number) {
   return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
 }
 
+function timeOnly(iso: string | null) {
+  if (!iso) return "-";
+  return new Date(iso).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" });
+}
+
 export default function AttendancePage() {
-  const { name } = useUserLabel();
+  const { name, email } = useUserLabel();
+  const [employeeId, setEmployeeId] = useState<number | null>(null);
   const [state, setState] = useState<SessionState>("idle");
   const [workSeconds, setWorkSeconds] = useState(0);
   const [breakSeconds, setBreakSeconds] = useState(0);
-  const [history, setHistory] = useState(seedHistory);
+  const [history, setHistory] = useState<Attendance[]>([]);
+  const [saving, setSaving] = useState(false);
+  const loginAtRef = useRef<string | null>(null);
 
-  useEffect(() => {
-    try {
-      const raw = localStorage.getItem(HISTORY_KEY);
-      if (raw) setHistory(JSON.parse(raw));
-      const sess = localStorage.getItem(SESSION_KEY);
-      if (sess) {
-        const parsed = JSON.parse(sess);
-        setState(parsed.state || "idle");
-        setWorkSeconds(parsed.workSeconds || 0);
-        setBreakSeconds(parsed.breakSeconds || 0);
-      }
-    } catch {
-      /* ignore */
+  const loadHistory = useCallback(async (empId: number) => {
+    const res = await fetch(`/api/attendance?employeeId=${empId}`);
+    if (res.ok) {
+      const data = await res.json();
+      setHistory(data.records ?? []);
     }
   }, []);
 
+  // Resolve the logged-in user to an employee record by email.
   useEffect(() => {
-    localStorage.setItem(
-      SESSION_KEY,
-      JSON.stringify({ state, workSeconds, breakSeconds })
-    );
-  }, [state, workSeconds, breakSeconds]);
+    if (!email) return;
+    (async () => {
+      const res = await fetch(`/api/employees?q=${encodeURIComponent(email)}`);
+      if (!res.ok) return;
+      const data = await res.json();
+      const match = (data.employees ?? []).find(
+        (e: { email: string; id: number }) => e.email.toLowerCase() === email.toLowerCase()
+      );
+      if (match) {
+        setEmployeeId(match.id);
+        loadHistory(match.id);
+      }
+    })();
+  }, [email, loadHistory]);
 
   useEffect(() => {
     if (state === "idle") return;
@@ -60,23 +68,34 @@ export default function AttendancePage() {
     return () => clearInterval(id);
   }, [state]);
 
-  const logout = () => {
-    const today = new Date().toISOString().slice(0, 10);
-    const entry = {
-      id: String(Date.now()),
-      date: today,
-      login: "Today",
-      logout: new Date().toLocaleTimeString("en-US", {
-        hour: "2-digit",
-        minute: "2-digit",
-      }),
-      workHrs: formatTimer(workSeconds).slice(0, 5).replace(":", "h ") + "m",
-      breakHrs: formatTimer(breakSeconds).slice(0, 5).replace(":", "h ") + "m",
-      status: "Complete",
-    };
-    const next = [entry, ...history];
-    setHistory(next);
-    localStorage.setItem(HISTORY_KEY, JSON.stringify(next));
+  const startWork = () => {
+    if (!loginAtRef.current) loginAtRef.current = new Date().toISOString();
+    setState("working");
+  };
+
+  const logout = async () => {
+    if (employeeId) {
+      setSaving(true);
+      try {
+        await fetch("/api/attendance", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            employeeId,
+            date: new Date().toISOString(),
+            loginAt: loginAtRef.current,
+            logoutAt: new Date().toISOString(),
+            breakMinutes: Math.round(breakSeconds / 60),
+            workedMinutes: Math.round(workSeconds / 60),
+            status: "Complete",
+          }),
+        });
+        await loadHistory(employeeId);
+      } finally {
+        setSaving(false);
+      }
+    }
+    loginAtRef.current = null;
     setState("idle");
     setWorkSeconds(0);
     setBreakSeconds(0);
@@ -90,6 +109,12 @@ export default function AttendancePage() {
           Track login, break, and logout for <strong>{name}</strong>.
         </p>
       </div>
+
+      {!employeeId && email && (
+        <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-2 text-sm text-amber-700">
+          No employee record linked to {email}. Sessions will not be saved until an employee with this email exists.
+        </div>
+      )}
 
       <div className="grid gap-4 lg:grid-cols-3">
         <Card className="lg:col-span-2">
@@ -106,7 +131,7 @@ export default function AttendancePage() {
             </div>
             <div className="flex flex-wrap justify-center gap-3">
               {state === "idle" && (
-                <Button variant="success" size="lg" onClick={() => setState("working")}>
+                <Button variant="success" size="lg" onClick={startWork}>
                   Login
                 </Button>
               )}
@@ -115,8 +140,8 @@ export default function AttendancePage() {
                   <Button variant="warning" size="lg" onClick={() => setState("break")}>
                     Break
                   </Button>
-                  <Button variant="danger" size="lg" onClick={logout}>
-                    Logout
+                  <Button variant="danger" size="lg" onClick={logout} disabled={saving}>
+                    {saving ? "Saving..." : "Logout"}
                   </Button>
                 </>
               )}
@@ -128,16 +153,8 @@ export default function AttendancePage() {
             </div>
           </div>
           <div className="mt-2 text-center">
-            <Badge
-              tone={
-                state === "working" ? "green" : state === "break" ? "orange" : "gray"
-              }
-            >
-              {state === "idle"
-                ? "Not Started"
-                : state === "working"
-                  ? "Active"
-                  : "On Break"}
+            <Badge tone={state === "working" ? "green" : state === "break" ? "orange" : "gray"}>
+              {state === "idle" ? "Not Started" : state === "working" ? "Active" : "On Break"}
             </Badge>
           </div>
         </Card>
@@ -161,10 +178,6 @@ export default function AttendancePage() {
               <span className="text-gray-500">Break</span>
               <span className="font-medium">{formatTimer(breakSeconds)}</span>
             </div>
-            <div className="flex justify-between">
-              <span className="text-gray-500">Records</span>
-              <span className="font-medium">{history.length}</span>
-            </div>
           </div>
         </Card>
       </div>
@@ -177,14 +190,12 @@ export default function AttendancePage() {
           {history.map((row) => (
             <tr key={row.id} className="hover:bg-gray-50/80">
               <td className="whitespace-nowrap px-4 py-3">{formatDate(row.date)}</td>
-              <td className="px-4 py-3">{row.login}</td>
-              <td className="px-4 py-3">{row.logout}</td>
-              <td className="px-4 py-3">{row.workHrs}</td>
-              <td className="px-4 py-3">{row.breakHrs}</td>
+              <td className="px-4 py-3">{timeOnly(row.loginAt)}</td>
+              <td className="px-4 py-3">{timeOnly(row.logoutAt)}</td>
+              <td className="px-4 py-3">{formatWorkedMinutes(row.workedMinutes)}</td>
+              <td className="px-4 py-3">{formatWorkedMinutes(row.breakMinutes)}</td>
               <td className="px-4 py-3">
-                <Badge tone={row.status === "Active" ? "orange" : "green"}>
-                  {row.status}
-                </Badge>
+                <Badge tone={row.status === "Active" ? "orange" : "green"}>{row.status}</Badge>
               </td>
             </tr>
           ))}

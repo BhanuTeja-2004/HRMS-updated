@@ -1,0 +1,133 @@
+// Prisma schema — Smart HRMS
+// Module 1: Employee Management
+// Module 2: Attendance (worked hours), Payroll, Payslip
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model Employee {
+  id          Int       @id @default(autoincrement())
+  employeeId  String    @unique
+  name        String
+  department  String?
+  designation String?
+  phone       String?
+  email       String    @unique
+  doj         DateTime?
+  status      String    @default("Active")
+
+  // Bank details
+  accountHolder String?
+  bankName      String?
+  accountNumber String?
+  ifsc          String?
+  branch        String?
+  panNumber     String?
+  aadhaarNumber String?
+
+  // CRM access
+  crmEnabled Boolean @default(false)
+
+  // Salary configuration (used to auto-generate payroll)
+  monthlyCtc  Float?
+  hourlyRate  Float?
+
+  attendances Attendance[]
+  payrolls    Payroll[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("employees")
+}
+
+model Attendance {
+  id         Int       @id @default(autoincrement())
+  employeeId Int
+  employee   Employee  @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  date          DateTime
+  loginAt       DateTime?
+  logoutAt      DateTime?
+  breakMinutes  Int      @default(0)
+  workedMinutes Int      @default(0)
+  status        String   @default("Present")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([employeeId])
+  @@map("attendance")
+}
+
+model Payroll {
+  id         Int      @id @default(autoincrement())
+  employeeId Int
+  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  month       String   // e.g. "2026-02"
+  periodStart DateTime
+  periodEnd   DateTime
+  cycleDays   Int      @default(30)
+
+  workedHours Float    @default(0)
+  basic       Float    @default(0)
+  allowances  Float    @default(0)
+  deductions  Float    @default(0)
+  gross       Float    @default(0)
+  net         Float    @default(0)
+
+  status  String  @default("Draft") // Draft, Generated, Approved, Rejected
+  remarks String?
+
+  payslip Payslip?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([employeeId])
+  @@map("payroll")
+}
+
+model Payslip {
+  id        Int     @id @default(autoincrement())
+  payrollId Int     @unique
+  payroll   Payroll @relation(fields: [payrollId], references: [id], onDelete: Cascade)
+
+  // Snapshot of employee details (auto-filled, editable before PDF)
+  employeeName  String
+  employeeCode  String
+  designation   String?
+  department    String?
+  doj           DateTime?
+  bankName      String?
+  accountNumber String?
+  ifsc          String?
+  panNumber     String?
+  aadhaarNumber String?
+
+  month     String
+  workedHours Float  @default(0)
+
+  earnings   Json
+  deductions Json
+  grossPay   Float  @default(0)
+  totalDeductions Float @default(0)
+  netPay     Float  @default(0)
+
+  invoiceDate DateTime?
+  clauseDays  Int?
+
+  status String @default("Draft") // Draft, Approved
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("payslip")
+}
