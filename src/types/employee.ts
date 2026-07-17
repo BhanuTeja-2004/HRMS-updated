@@ -31,6 +31,8 @@ export interface Employee {
   aadhaarNumber: string | null;
 
   crmEnabled: boolean;
+  monthlyCtc: number | null;
+  takeHome: number | null;
 
   createdAt: string;
   updatedAt: string;
@@ -56,4 +58,6 @@ export interface EmployeeInput {
   aadhaarNumber?: string | null;
 
   crmEnabled?: boolean;
+  monthlyCtc?: number | null;
+  takeHome?: number | null;
 }

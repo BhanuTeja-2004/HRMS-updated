@@ -11,7 +11,12 @@ export async function GET(req: NextRequest) {
     const payslip = await prisma.payslip.findUnique({ where: { payrollId: Number(payrollId) } });
     return NextResponse.json({ payslip });
   }
-  const payslips = await prisma.payslip.findMany({ orderBy: { createdAt: "desc" } });
+  const employeeId = req.nextUrl.searchParams.get("employeeId");
+  const approvedOnly = req.nextUrl.searchParams.get("approved") === "1";
+  const where: Record<string, unknown> = {};
+  if (employeeId) where.payroll = { employeeId: Number(employeeId) };
+  if (approvedOnly) where.status = "Approved";
+  const payslips = await prisma.payslip.findMany({ where, orderBy: { createdAt: "desc" } });
   return NextResponse.json({ payslips });
 }
 

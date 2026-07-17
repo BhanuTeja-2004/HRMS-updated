@@ -113,12 +113,6 @@ export function EmployeeForm({ values, errors = {}, onChange }: EmployeeFormProp
             error={errors.ifsc}
           />
           <Input
-            label="Branch"
-            value={values.branch ?? ""}
-            onChange={(e) => onChange({ branch: e.target.value })}
-            error={errors.branch}
-          />
-          <Input
             label="PAN Number"
             value={values.panNumber ?? ""}
             onChange={(e) => onChange({ panNumber: e.target.value.toUpperCase() })}
@@ -129,6 +123,29 @@ export function EmployeeForm({ values, errors = {}, onChange }: EmployeeFormProp
             value={values.aadhaarNumber ?? ""}
             onChange={(e) => onChange({ aadhaarNumber: e.target.value })}
             error={errors.aadhaarNumber}
+          />
+        </div>
+      </section>
+
+      {/* Salary */}
+      <section className="space-y-3">
+        <SectionTitle>Salary</SectionTitle>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <Input
+            label="Monthly Salary / CTC"
+            type="number"
+            value={values.monthlyCtc != null ? String(values.monthlyCtc) : ""}
+            onChange={(e) => onChange({ monthlyCtc: e.target.value === "" ? null : Number(e.target.value) })}
+            error={errors.monthlyCtc}
+            placeholder="e.g. 45000"
+          />
+          <Input
+            label="Take Home Salary"
+            type="number"
+            value={values.takeHome != null ? String(values.takeHome) : ""}
+            onChange={(e) => onChange({ takeHome: e.target.value === "" ? null : Number(e.target.value) })}
+            error={errors.takeHome}
+            placeholder="e.g. 38000"
           />
         </div>
       </section>

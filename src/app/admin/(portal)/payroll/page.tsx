@@ -207,9 +207,10 @@ export default function AdminPayrollPage() {
               <Input label="Cycle Days" type="number" value={String(edit.cycleDays)} onChange={(e) => setEdit({ ...edit, cycleDays: Number(e.target.value) })} />
               <Input label="Basic" type="number" value={String(edit.basic)} onChange={(e) => setEdit({ ...edit, basic: Number(e.target.value) })} />
               <Input label="Allowances" type="number" value={String(edit.allowances)} onChange={(e) => setEdit({ ...edit, allowances: Number(e.target.value) })} />
-              <Input label="Gross" type="number" value={String(edit.gross)} onChange={(e) => setEdit({ ...edit, gross: Number(e.target.value) })} />
-              <Input label="Deductions" type="number" value={String(edit.deductions)} onChange={(e) => setEdit({ ...edit, deductions: Number(e.target.value) })} />
-              <Input label="Net" type="number" value={String(edit.net)} onChange={(e) => setEdit({ ...edit, net: Number(e.target.value) })} />
+              <Input label="Gross" type="number" value={String(edit.gross)} onChange={(e) => { const gross = Number(e.target.value); setEdit({ ...edit, gross, net: Math.max(0, gross + (edit.bonus || 0) - edit.deductions) }); }} />
+              <Input label="Bonus" type="number" value={String(edit.bonus ?? 0)} onChange={(e) => { const bonus = Number(e.target.value); setEdit({ ...edit, bonus, net: Math.max(0, edit.gross + bonus - edit.deductions) }); }} />
+              <Input label="Deductions" type="number" value={String(edit.deductions)} onChange={(e) => { const deductions = Number(e.target.value); setEdit({ ...edit, deductions, net: Math.max(0, edit.gross + (edit.bonus || 0) - deductions) }); }} />
+              <Input label="Net (auto)" type="number" value={String(edit.net)} readOnly />
             </div>
             <Input label="Remarks" value={edit.remarks ?? ""} onChange={(e) => setEdit({ ...edit, remarks: e.target.value })} />
             <Button type="submit" className="w-full" disabled={busy}>{busy ? "Saving..." : "Save Changes"}</Button>

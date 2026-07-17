@@ -37,9 +37,11 @@ model Employee {
   // Salary configuration (used to auto-generate payroll)
   monthlyCtc  Float?
   hourlyRate  Float?
+  takeHome    Float?
 
   attendances Attendance[]
   payrolls    Payroll[]
+  documents   EmployeeDocument[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -82,6 +84,7 @@ model Payroll {
   deductions  Float    @default(0)
   gross       Float    @default(0)
   net         Float    @default(0)
+  bonus       Float    @default(0)
 
   status  String  @default("Draft") // Draft, Generated, Approved, Rejected
   remarks String?
@@ -130,4 +133,111 @@ model Payslip {
   updatedAt DateTime @updatedAt
 
   @@map("payslip")
+}
+
+model Invoice {
+  id            Int       @id @default(autoincrement())
+  candidateRef  String    @unique // CRM / selected-candidate id
+  candidateName String
+  company       String?
+  role          String?
+  doj           DateTime?
+  clauseDays    Int       @default(45)
+  invoiceDate   DateTime?
+  raised        Boolean   @default(false)
+  raisedAt      DateTime?
+  amount        Float?
+  notes         String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("invoice")
+}
+
+model Reminder {
+  id      Int       @id @default(autoincrement())
+  type    String // Invoice, Payroll, Clause, Employee
+  refId   String?
+  title   String
+  message String?
+  dueDate DateTime?
+  status  String    @default("Pending") // Pending, Done, Dismissed
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("reminder")
+}
+
+model EmployeeDocument {
+  id         Int      @id @default(autoincrement())
+  employeeId Int
+  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  category String // Agreement, Offer Letter, Contract, Other
+  fileName String
+  fileType String?
+  dataUrl  String  @db.LongText
+
+  createdAt DateTime @default(now())
+
+  @@index([employeeId])
+  @@map("employee_document")
+}
+
+model Vendor {
+  id            Int      @id @default(autoincrement())
+  company       String
+  contactPerson String?
+  website       String?
+  location      String?
+  clauseDays    Int      @default(45)
+
+  documents VendorDocument[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("vendor")
+}
+
+model VendorDocument {
+  id       Int    @id @default(autoincrement())
+  vendorId Int
+  vendor   Vendor @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+
+  category String // Agreement, Other
+  fileName String
+  fileType String?
+  dataUrl  String @db.LongText
+
+  createdAt DateTime @default(now())
+
+  @@index([vendorId])
+  @@map("vendor_document")
+}
+
+model Candidate {
+  id            Int       @id @default(autoincrement())
+  name          String
+  phone         String?
+  email         String?
+  itType        String?   // IT, Non-IT
+  qualification String?
+  languages     Json?
+  location      String?
+  remarks       String?
+  status        String    @default("New Lead")
+  process       String?
+  shortlisted   String    @default("No")
+  interviewDate DateTime?
+  doj           DateTime?
+  owner         String?   // HR who added
+  addedAt       DateTime  @default(now())
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("candidate")
 }

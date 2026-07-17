@@ -39,7 +39,8 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
   const allowances = num(body.allowances);
   const deductions = num(body.deductions);
   const gross = body.gross !== undefined ? num(body.gross) : basic + allowances;
-  const net = body.net !== undefined ? num(body.net) : Math.max(0, gross - deductions);
+  const bonus = num(body.bonus);
+  const net = body.net !== undefined ? num(body.net) : Math.max(0, gross + bonus - deductions);
 
   try {
     const payroll = await prisma.payroll.update({
@@ -51,6 +52,7 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
         allowances,
         deductions,
         gross,
+        bonus,
         net,
         remarks: body.remarks !== undefined ? (body.remarks ? String(body.remarks) : null) : undefined,
         ...(body.status ? { status: String(body.status) } : {}),

@@ -1,57 +1,59 @@
 "use client";
 
-import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { Input } from "@/components/ui/Input";
 import { Modal } from "@/components/ui/Modal";
 import { Select } from "@/components/ui/Select";
 import { useUserLabel } from "@/hooks/useAuth";
-import { formatElapsed, loadCandidates, saveCandidates } from "@/lib/crm-store";
-import {
-  CRM_STATUSES,
-  CRMCandidate,
-  LANGUAGES,
-  LOCATIONS,
-} from "@/lib/mock-data";
-import { formatDate } from "@/lib/utils";
-import {
-  Download,
-  Eye,
-  Filter,
-  History,
-  Pencil,
-  Plus,
-  Search,
-  Trash2,
-  Upload,
-} from "lucide-react";
+import { loadCandidates, saveCandidates } from "@/lib/crm-store";
+import { CRM_STATUSES, CRMCandidate, LANGUAGES, LOCATIONS } from "@/lib/mock-data";
+import { Pencil, Plus, Search, Trash2 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
-const langTone = (lang: string): "red" | "orange" | "gray" | "blue" => {
-  if (lang === "Hindi") return "orange";
-  if (lang === "Other") return "gray";
-  if (lang === "Bengali") return "blue";
-  return "red";
-};
+const IT_OPTIONS = ["IT", "Non-IT"];
+const PROCESS_OPTIONS = [
+  "Voice Process - Infosys",
+  "Non-Voice - Wipro",
+  "Customer Support - Infosys",
+  "Data Entry - TCS",
+  "HR Recruiter - Capgemini",
+  "BPO - Cognizant",
+  "Technical Support - Accenture",
+  "Other",
+];
+const SHORTLIST_OPTIONS = ["Yes", "No", "Pending"];
 
 const emptyForm = {
   name: "",
   phone: "",
+  itType: "Non-IT",
   email: "",
-  location: "Bangalore",
-  process: "",
+  qualification: "",
   languages: ["English"] as string[],
+  location: "Bangalore",
+  remarks: "",
   status: "New Lead",
-  shortlisted: "No" as "Yes" | "No" | "Pending",
+  process: "",
+  shortlisted: "No" as string,
   interviewDate: "",
   doj: "",
-  remarks: "",
-  ctc: "",
-  takeHome: "",
-  invoiceDate: "",
-  clauseDate: "",
 };
+
+function isToday(value: string | number | undefined): boolean {
+  if (!value) return false;
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return false;
+  const t = new Date();
+  return d.getFullYear() === t.getFullYear() && d.getMonth() === t.getMonth() && d.getDate() === t.getDate();
+}
+function isThisMonth(value: string | number | undefined): boolean {
+  if (!value) return false;
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return false;
+  const t = new Date();
+  return d.getFullYear() === t.getFullYear() && d.getMonth() === t.getMonth();
+}
 
 export default function CRMPage() {
   const { label } = useUserLabel();
@@ -59,27 +61,15 @@ export default function CRMPage() {
   const [ready, setReady] = useState(false);
   const [q, setQ] = useState("");
   const [addOpen, setAddOpen] = useState(false);
-  const [viewOpen, setViewOpen] = useState(false);
-  const [editOpen, setEditOpen] = useState(false);
-  const [importOpen, setImportOpen] = useState(false);
-  const [selected, setSelected] = useState<CRMCandidate | null>(null);
+  const [editRow, setEditRow] = useState<CRMCandidate | null>(null);
   const [form, setForm] = useState(emptyForm);
-  const [now, setNow] = useState(Date.now());
-  const [quick, setQuick] = useState({ name: "", phone: "", location: "Bangalore" });
   const [page, setPage] = useState(1);
   const pageSize = 25;
 
   useEffect(() => {
-    const data = loadCandidates();
-    setRows(data);
+    setRows(loadCandidates());
     setReady(true);
   }, []);
-
-  useEffect(() => {
-    const id = setInterval(() => setNow(Date.now()), 1000);
-    return () => clearInterval(id);
-  }, []);
-
   useEffect(() => {
     if (ready) saveCandidates(rows);
   }, [rows, ready]);
@@ -99,599 +89,208 @@ export default function CRMPage() {
   const pageRows = filtered.slice((page - 1) * pageSize, page * pageSize);
   const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
 
-  const shortlistedWeek = rows.filter((r) => r.shortlisted === "Yes").length;
-  const pendingRnr = rows.filter(
-    (r) => r.status === "RNR" || r.shortlisted === "Pending"
+  // Dynamic summary metrics
+  const callsToday = rows.filter((r) => isToday(r.addedAt)).length;
+  const shortlistedToday = rows.filter((r) => r.shortlisted === "Yes" && isToday(r.addedAt)).length;
+  const interviewedToday = rows.filter(
+    (r) => isToday(r.interviewDate) && ["Interview Scheduled", "Selected", "Joined"].includes(r.status)
   ).length;
-  const callsToday = rows.reduce((sum, r) => sum + (r.calls > 0 ? 1 : 0), 0) % 50;
+  const scheduledInterviews = rows.filter((r) => isToday(r.interviewDate)).length;
+  const joinedThisMonth = rows.filter((r) => r.status === "Joined" && (isThisMonth(r.doj) || isThisMonth(r.addedAt))).length;
 
-  const persist = (next: CRMCandidate[]) => setRows(next);
-
-  const addCandidate = (data: typeof emptyForm, close = true) => {
+  function addCandidate(e: React.FormEvent) {
+    e.preventDefault();
     const id = String(Math.max(...rows.map((r) => Number(r.id) || 0), 5000) + 1);
     const row: CRMCandidate = {
       id,
-      name: data.name,
-      phone: data.phone,
-      email: data.email,
-      languages: data.languages,
-      location: data.location,
-      process: data.process || "—",
-      shortlisted: data.shortlisted,
-      status: data.status,
-      interviewDate: data.interviewDate,
-      doj: data.doj,
-      remarks: data.remarks,
+      name: form.name,
+      phone: form.phone,
+      email: form.email,
+      itType: form.itType,
+      qualification: form.qualification,
+      languages: form.languages,
+      location: form.location,
+      remarks: form.remarks,
+      status: form.status,
+      process: form.process || "-",
+      shortlisted: form.shortlisted as CRMCandidate["shortlisted"],
+      interviewDate: form.interviewDate,
+      doj: form.doj,
       calls: 0,
-      ctc: data.ctc,
-      takeHome: data.takeHome,
-      invoiceDate: data.invoiceDate,
-      clauseDate: data.clauseDate,
+      ctc: "",
+      takeHome: "",
+      invoiceDate: "",
+      clauseDate: "",
       addedAt: Date.now(),
     };
-    persist([row, ...rows]);
+    setRows((prev) => [row, ...prev]);
     setForm(emptyForm);
-    if (close) setAddOpen(false);
-  };
-
-  const LanguagePicker = ({
-    value,
-    onChange,
-  }: {
-    value: string[];
-    onChange: (v: string[]) => void;
-  }) => (
-    <div>
-      <p className="mb-2 text-sm font-semibold text-gray-800">Languages Known</p>
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-        {LANGUAGES.map((lang) => {
-          const on = value.includes(lang);
-          return (
-            <label
-              key={lang}
-              className={`flex cursor-pointer items-center gap-2 rounded-lg border px-2.5 py-2 text-sm ${
-                on ? "border-brand-red bg-brand-pink/40 text-brand-red" : "border-gray-200"
-              }`}
-            >
-              <input
-                type="checkbox"
-                checked={on}
-                onChange={() =>
-                  onChange(
-                    on ? value.filter((x) => x !== lang) : [...value, lang]
-                  )
-                }
-              />
-              {lang}
-            </label>
-          );
-        })}
-      </div>
-    </div>
-  );
-
-  if (!ready) {
-    return (
-      <div className="flex h-64 items-center justify-center">
-        <div className="h-8 w-8 animate-spin rounded-full border-2 border-brand-red border-t-transparent" />
-      </div>
-    );
+    setAddOpen(false);
   }
 
+  function openEdit(r: CRMCandidate) {
+    setEditRow(r);
+    setForm({
+      name: r.name,
+      phone: r.phone,
+      itType: r.itType ?? "Non-IT",
+      email: r.email,
+      qualification: r.qualification ?? "",
+      languages: r.languages,
+      location: r.location,
+      remarks: r.remarks,
+      status: r.status,
+      process: r.process,
+      shortlisted: r.shortlisted,
+      interviewDate: r.interviewDate,
+      doj: r.doj,
+    });
+  }
+
+  function saveEdit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!editRow) return;
+    setRows((prev) => prev.map((x) => (x.id === editRow.id ? { ...x, ...form, shortlisted: form.shortlisted as CRMCandidate["shortlisted"] } : x)));
+    setEditRow(null);
+  }
+
+  function updateField(id: string, patch: Partial<CRMCandidate>) {
+    setRows((prev) => prev.map((x) => (x.id === id ? { ...x, ...patch } : x)));
+  }
+
+  function remove(id: string) {
+    setRows((prev) => prev.filter((x) => x.id !== id));
+  }
+
+  const cards = [
+    { label: "Calls Today", value: callsToday, tone: "text-brand-red" },
+    { label: "Shortlisted Today", value: shortlistedToday, tone: "text-emerald-600" },
+    { label: "Interviewed Today", value: interviewedToday, tone: "text-blue-600" },
+    { label: "Scheduled Interviews", value: scheduledInterviews, tone: "text-orange-500" },
+    { label: "Joined This Month", value: joinedThisMonth, tone: "text-purple-600" },
+  ];
+
   return (
-    <div className="space-y-5">
-      <div className="flex flex-wrap items-start justify-between gap-3">
+    <div className="space-y-6">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h2 className="text-2xl font-bold text-gray-900">Recruitment Tracker</h2>
-          <p className="text-sm text-gray-500">{label}</p>
+          <h2 className="text-2xl font-bold text-gray-900">CRM</h2>
+          <p className="text-sm text-gray-500">Candidate pipeline for {label}.</p>
         </div>
-        <span className="rounded-full bg-gray-100 px-3 py-1 text-sm font-medium text-gray-700">
-          {rows.length} Candidates
-        </span>
+        <Button onClick={() => { setForm(emptyForm); setAddOpen(true); }}>
+          <Plus size={16} /> Add Candidate
+        </Button>
       </div>
 
-      <div className="flex flex-col gap-2 lg:flex-row lg:items-center">
-        <div className="relative min-w-0 flex-1">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-          <input
-            className="w-full rounded-lg border border-gray-200 bg-white py-2.5 pl-9 pr-3 text-sm outline-none focus:border-brand-red focus:ring-2 focus:ring-brand-red/15"
-            placeholder="Search by name, phone, email, location..."
-            value={q}
-            onChange={(e) => {
-              setQ(e.target.value);
-              setPage(1);
-            }}
-          />
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <Button variant="secondary" size="md">
-            <Filter size={16} /> Filter
-          </Button>
-          <Button variant="secondary" size="md" onClick={() => setImportOpen(true)}>
-            <Upload size={16} /> Import
-          </Button>
-          <Button
-            variant="secondary"
-            size="md"
-            onClick={() => {
-              const csv = [
-                "Name,Phone,Email,Location,Status,CTC,TakeHome,Invoice,Clause",
-                ...rows
-                  .slice(0, 200)
-                  .map(
-                    (r) =>
-                      `${r.name},${r.phone},${r.email},${r.location},${r.status},${r.ctc},${r.takeHome},${r.invoiceDate},${r.clauseDate}`
-                  ),
-              ].join("\n");
-              const blob = new Blob([csv], { type: "text/csv" });
-              const a = document.createElement("a");
-              a.href = URL.createObjectURL(blob);
-              a.download = "candidates-export.csv";
-              a.click();
-            }}
-          >
-            <Download size={16} /> Export
-          </Button>
-          <Button
-            onClick={() => {
-              setForm(emptyForm);
-              setAddOpen(true);
-            }}
-          >
-            <Plus size={16} /> Add Candidate
-          </Button>
-        </div>
+      <div className="grid gap-4 sm:grid-cols-3 xl:grid-cols-5">
+        {cards.map((c) => (
+          <Card key={c.label} className="!p-4">
+            <p className="text-sm text-gray-500">{c.label}</p>
+            <p className={`mt-1 text-3xl font-bold ${c.tone}`}>{c.value}</p>
+          </Card>
+        ))}
       </div>
 
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <Card className="!p-4">
-          <p className="text-sm text-gray-500">Total Candidates</p>
-          <p className="mt-1 text-3xl font-bold text-brand-red">{rows.length}</p>
-        </Card>
-        <Card className="!p-4">
-          <p className="text-sm text-gray-500">Calls Today</p>
-          <p className="mt-1 text-3xl font-bold text-blue-600">{callsToday}</p>
-        </Card>
-        <Card className="!p-4">
-          <p className="text-sm text-gray-500">Pending / RNR</p>
-          <p className="mt-1 text-3xl font-bold text-orange-500">{pendingRnr}</p>
-        </Card>
-        <Card className="!p-4">
-          <p className="text-sm text-gray-500">Shortlisted Week</p>
-          <p className="mt-1 text-3xl font-bold text-emerald-600">{shortlistedWeek}</p>
-        </Card>
+      <div className="relative max-w-sm">
+        <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+        <input
+          value={q}
+          onChange={(e) => { setQ(e.target.value); setPage(1); }}
+          placeholder="Search name, phone, email, location..."
+          className="w-full rounded-lg border border-gray-200 py-2.5 pl-9 pr-3 text-sm outline-none focus:border-brand-red"
+        />
       </div>
 
-      <div className="overflow-auto rounded-xl border border-gray-200 bg-white scrollbar-thin">
-        <table className="min-w-[1400px] w-full text-left text-sm">
+      <div className="overflow-auto rounded-xl border border-gray-200 bg-white">
+        <table className="min-w-full text-left text-sm">
           <thead>
             <tr className="bg-[#E8F0FE] text-gray-800">
-              {[
-                "ID",
-                "Name",
-                "Phone",
-                "Email",
-                "Languages",
-                "Location",
-                "Process/Company",
-                "Shortlisted",
-                "Interview",
-                "DOJ",
-                "Status",
-                "Remarks",
-                "CTC",
-                "Take-home",
-                "Invoice",
-                "Clause Days",
-                "Added On",
-                "Calls",
-                "Timer",
-                "Actions",
-              ].map((h) => (
-                <th key={h} className="whitespace-nowrap px-3 py-3 font-semibold">
-                  {h}
-                </th>
+              {["#", "Name", "Phone", "IT / Non-IT", "Email", "Qualification", "Languages", "Location", "Remarks", "Status", "Process / Company", "Shortlisted", "Interview Date", "Date of Joining", "Added On", "Actions"].map((h) => (
+                <th key={h} className="whitespace-nowrap px-3 py-3 font-semibold">{h}</th>
               ))}
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
-            {pageRows.map((r) => (
+            {pageRows.map((r, i) => (
               <tr key={r.id} className="hover:bg-blue-50/40">
-                <td className="px-3 py-2.5 text-gray-500">{r.id}</td>
+                <td className="px-3 py-2.5 text-gray-500">{(page - 1) * pageSize + i + 1}</td>
                 <td className="px-3 py-2.5 font-medium text-gray-900">{r.name}</td>
-                <td className="px-3 py-2.5 text-blue-600">{r.phone}</td>
-                <td className="px-3 py-2.5 text-gray-600">{r.email}</td>
+                <td className="px-3 py-2.5">{r.phone}</td>
                 <td className="px-3 py-2.5">
-                  <div className="flex max-w-[160px] flex-wrap gap-1">
-                    {r.languages.slice(0, 3).map((l) => (
-                      <Badge key={l} tone={langTone(l)}>
-                        {l}
-                      </Badge>
-                    ))}
-                  </div>
-                </td>
-                <td className="px-3 py-2.5">
-                  <select
-                    className="rounded-md border border-gray-200 bg-white px-2 py-1 text-sm"
-                    value={r.location}
-                    onChange={(e) =>
-                      persist(
-                        rows.map((x) =>
-                          x.id === r.id ? { ...x, location: e.target.value } : x
-                        )
-                      )
-                    }
-                  >
-                    {LOCATIONS.map((l) => (
-                      <option key={l}>{l}</option>
-                    ))}
+                  <select className="rounded-md border border-gray-200 px-2 py-1 text-sm" value={r.itType ?? "Non-IT"} onChange={(e) => updateField(r.id, { itType: e.target.value })}>
+                    {IT_OPTIONS.map((o) => <option key={o}>{o}</option>)}
                   </select>
                 </td>
-                <td className="max-w-[140px] truncate px-3 py-2.5">{r.process || "—"}</td>
+                <td className="px-3 py-2.5">{r.email}</td>
+                <td className="px-3 py-2.5">{r.qualification || "-"}</td>
+                <td className="max-w-[140px] truncate px-3 py-2.5">{r.languages.join(", ")}</td>
+                <td className="px-3 py-2.5">{r.location}</td>
+                <td className="max-w-[140px] truncate px-3 py-2.5 text-gray-500">{r.remarks || "-"}</td>
                 <td className="px-3 py-2.5">
-                  <select
-                    className="rounded-md border border-gray-200 px-2 py-1 text-sm"
-                    value={r.shortlisted}
-                    onChange={(e) =>
-                      persist(
-                        rows.map((x) =>
-                          x.id === r.id
-                            ? {
-                                ...x,
-                                shortlisted: e.target.value as CRMCandidate["shortlisted"],
-                              }
-                            : x
-                        )
-                      )
-                    }
-                  >
-                    <option>Yes</option>
-                    <option>No</option>
-                    <option>Pending</option>
+                  <select className="rounded-md border border-gray-200 px-2 py-1 text-sm" value={r.status} onChange={(e) => updateField(r.id, { status: e.target.value })}>
+                    {CRM_STATUSES.map((s) => <option key={s}>{s}</option>)}
+                  </select>
+                </td>
+                <td className="px-3 py-2.5">
+                  <select className="rounded-md border border-gray-200 px-2 py-1 text-sm" value={PROCESS_OPTIONS.includes(r.process) ? r.process : "Other"} onChange={(e) => updateField(r.id, { process: e.target.value })}>
+                    {PROCESS_OPTIONS.map((s) => <option key={s}>{s}</option>)}
+                  </select>
+                </td>
+                <td className="px-3 py-2.5">
+                  <select className="rounded-md border border-gray-200 px-2 py-1 text-sm" value={r.shortlisted} onChange={(e) => updateField(r.id, { shortlisted: e.target.value as CRMCandidate["shortlisted"] })}>
+                    {SHORTLIST_OPTIONS.map((s) => <option key={s}>{s}</option>)}
                   </select>
                 </td>
                 <td className="whitespace-nowrap px-3 py-2.5">
-                  {r.interviewDate ? formatDate(r.interviewDate) : "—"}
+                  <input type="date" className="rounded-md border border-gray-200 px-2 py-1 text-sm" value={r.interviewDate || ""} onChange={(e) => updateField(r.id, { interviewDate: e.target.value })} />
                 </td>
                 <td className="whitespace-nowrap px-3 py-2.5">
-                  {r.doj ? formatDate(r.doj) : "—"}
-                </td>
-                <td className="px-3 py-2.5">
-                  <select
-                    className="rounded-md border border-gray-200 px-2 py-1 text-sm"
-                    value={r.status}
-                    onChange={(e) =>
-                      persist(
-                        rows.map((x) =>
-                          x.id === r.id ? { ...x, status: e.target.value } : x
-                        )
-                      )
-                    }
-                  >
-                    {CRM_STATUSES.map((s) => (
-                      <option key={s}>{s}</option>
-                    ))}
-                  </select>
-                </td>
-                <td className="max-w-[120px] truncate px-3 py-2.5 text-gray-500">
-                  {r.remarks || "—"}
-                </td>
-                <td className="px-3 py-2.5">{r.ctc || "—"}</td>
-                <td className="px-3 py-2.5">{r.takeHome ? `₹${r.takeHome}` : "—"}</td>
-                <td className="whitespace-nowrap px-3 py-2.5">
-                  {r.invoiceDate ? formatDate(r.invoiceDate) : "—"}
-                </td>
-                <td className="whitespace-nowrap px-3 py-2.5">
-                  {r.clauseDate ? `${r.clauseDate} days` : "—"}
+                  <input type="date" className="rounded-md border border-gray-200 px-2 py-1 text-sm" value={r.doj || ""} onChange={(e) => updateField(r.id, { doj: e.target.value })} />
                 </td>
                 <td className="whitespace-nowrap px-3 py-2.5 text-xs text-gray-600">
                   {new Date(r.addedAt).toLocaleString("en-GB", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })}
                 </td>
-                <td className="px-3 py-2.5">{r.calls}</td>
-                <td className="whitespace-nowrap px-3 py-2.5">
-                  <span className="inline-flex items-center gap-1 rounded-md bg-gray-100 px-2 py-0.5 font-mono text-xs text-gray-700">
-                    <History size={12} className="text-brand-red" />
-                    {formatElapsed(r.addedAt, now)}
-                  </span>
-                </td>
                 <td className="px-3 py-2.5">
                   <div className="flex items-center gap-1">
-                    <button
-                      title="View"
-                      className="rounded p-1.5 text-gray-500 hover:bg-gray-100 hover:text-brand-red"
-                      onClick={() => {
-                        setSelected(r);
-                        setViewOpen(true);
-                      }}
-                    >
-                      <Eye size={15} />
-                    </button>
-                    <button
-                      title="Edit"
-                      className="rounded p-1.5 text-gray-500 hover:bg-gray-100 hover:text-blue-600"
-                      onClick={() => {
-                        setSelected(r);
-                        setForm({
-                          name: r.name,
-                          phone: r.phone,
-                          email: r.email,
-                          location: r.location,
-                          process: r.process,
-                          languages: r.languages,
-                          status: r.status,
-                          shortlisted: r.shortlisted,
-                          interviewDate: r.interviewDate,
-                          doj: r.doj,
-                          remarks: r.remarks,
-                          ctc: r.ctc,
-                          takeHome: r.takeHome,
-                          invoiceDate: r.invoiceDate,
-                          clauseDate: r.clauseDate,
-                        });
-                        setEditOpen(true);
-                      }}
-                    >
-                      <Pencil size={15} />
-                    </button>
-                    <button
-                      title="Clear / Delete"
-                      className="rounded p-1.5 text-gray-500 hover:bg-red-50 hover:text-red-600"
-                      onClick={() => persist(rows.filter((x) => x.id !== r.id))}
-                    >
-                      <Trash2 size={15} />
-                    </button>
+                    <button className="rounded p-1 text-blue-600 hover:bg-blue-50" onClick={() => openEdit(r)} title="Edit"><Pencil size={15} /></button>
+                    <button className="rounded p-1 text-red-500 hover:bg-red-50" onClick={() => remove(r.id)} title="Delete"><Trash2 size={15} /></button>
                   </div>
                 </td>
               </tr>
             ))}
-
-            {/* Inline quick-add row */}
-            <tr className="bg-gray-50/80">
-              <td className="px-3 py-2 text-brand-red">
-                <Plus size={16} />
-              </td>
-              <td className="px-3 py-2">
-                <input
-                  className="w-full rounded border border-gray-200 px-2 py-1 text-sm"
-                  placeholder="Candidate name"
-                  value={quick.name}
-                  onChange={(e) => setQuick({ ...quick, name: e.target.value })}
-                />
-              </td>
-              <td className="px-3 py-2">
-                <input
-                  className="w-full rounded border border-gray-200 px-2 py-1 text-sm"
-                  placeholder="Phone"
-                  value={quick.phone}
-                  onChange={(e) => setQuick({ ...quick, phone: e.target.value })}
-                />
-              </td>
-              <td colSpan={3} className="px-3 py-2">
-                <select
-                  className="rounded border border-gray-200 px-2 py-1 text-sm"
-                  value={quick.location}
-                  onChange={(e) => setQuick({ ...quick, location: e.target.value })}
-                >
-                  {LOCATIONS.map((l) => (
-                    <option key={l}>{l}</option>
-                  ))}
-                </select>
-              </td>
-              <td colSpan={13} className="px-3 py-2 text-right">
-                <div className="inline-flex gap-2">
-                  <Button
-                    size="sm"
-                    onClick={() => {
-                      if (!quick.name || !quick.phone) return;
-                      addCandidate({
-                        ...emptyForm,
-                        name: quick.name,
-                        phone: quick.phone,
-                        location: quick.location,
-                        email: "",
-                      });
-                      setQuick({ name: "", phone: "", location: "Bangalore" });
-                    }}
-                  >
-                    Add
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="secondary"
-                    onClick={() => setQuick({ name: "", phone: "", location: "Bangalore" })}
-                  >
-                    Clear
-                  </Button>
-                </div>
-              </td>
-            </tr>
           </tbody>
         </table>
       </div>
 
-      <div className="flex flex-wrap items-center justify-between gap-2 text-sm text-gray-600">
-        <p>
-          Showing {(page - 1) * pageSize + 1}–
-          {Math.min(page * pageSize, filtered.length)} of {filtered.length}
-        </p>
-        <div className="flex gap-2">
-          <Button
-            size="sm"
-            variant="secondary"
-            disabled={page <= 1}
-            onClick={() => setPage((p) => p - 1)}
-          >
-            Prev
-          </Button>
-          <span className="px-2 py-1">
-            Page {page} / {totalPages}
-          </span>
-          <Button
-            size="sm"
-            variant="secondary"
-            disabled={page >= totalPages}
-            onClick={() => setPage((p) => p + 1)}
-          >
-            Next
-          </Button>
+      <div className="flex items-center justify-between text-sm text-gray-500">
+        <span>{filtered.length} candidates</span>
+        <div className="flex items-center gap-2">
+          <Button size="sm" variant="secondary" disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>Prev</Button>
+          <span>Page {page} / {totalPages}</span>
+          <Button size="sm" variant="secondary" disabled={page >= totalPages} onClick={() => setPage((p) => p + 1)}>Next</Button>
         </div>
       </div>
 
-      {/* Add Modal */}
-      <Modal open={addOpen} onClose={() => setAddOpen(false)} title="Add New Candidate" wide>
-        <form
-          className="grid max-h-[70vh] gap-3 overflow-y-auto sm:grid-cols-2"
-          onSubmit={(e) => {
-            e.preventDefault();
-            addCandidate(form, true);
-          }}
-        >
-          <Input label="Name *" placeholder="Full name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
-          <Input label="Phone *" placeholder="10-digit number" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} required />
-          <Input label="Email" placeholder="email@example.com" type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
-          <Select
-            label="Location"
-            value={form.location}
-            onChange={(e) => setForm({ ...form, location: e.target.value })}
-            options={LOCATIONS.map((l) => ({ value: l, label: l }))}
-          />
-          <div className="sm:col-span-2">
-            <Input label="Process / Company" placeholder="e.g., Customer Support – Infosys" value={form.process} onChange={(e) => setForm({ ...form, process: e.target.value })} />
-          </div>
-          <div className="sm:col-span-2">
-            <LanguagePicker
-              value={form.languages}
-              onChange={(languages) => setForm({ ...form, languages })}
-            />
-          </div>
-          <Select
-            label="Status"
-            value={form.status}
-            onChange={(e) => setForm({ ...form, status: e.target.value })}
-            options={CRM_STATUSES.map((s) => ({ value: s, label: s }))}
-          />
-          <Select
-            label="Shortlisted"
-            value={form.shortlisted}
-            onChange={(e) =>
-              setForm({
-                ...form,
-                shortlisted: e.target.value as CRMCandidate["shortlisted"],
-              })
-            }
-            options={[
-              { value: "No", label: "No" },
-              { value: "Yes", label: "Yes" },
-              { value: "Pending", label: "Pending" },
-            ]}
-          />
-          <Input label="Interview Date" type="date" value={form.interviewDate} onChange={(e) => setForm({ ...form, interviewDate: e.target.value })} />
-          <Input label="Date of Joining" type="date" value={form.doj} onChange={(e) => setForm({ ...form, doj: e.target.value })} />
-          <Input label="CTC" placeholder="e.g., 2.4 LPA" value={form.ctc} onChange={(e) => setForm({ ...form, ctc: e.target.value })} />
-          <Input label="Take-home Salary" placeholder="e.g., 18500" value={form.takeHome} onChange={(e) => setForm({ ...form, takeHome: e.target.value })} />
-          <Input label="Invoice Date" type="date" value={form.invoiceDate} onChange={(e) => setForm({ ...form, invoiceDate: e.target.value })} />
-          <Input label="Clause Days" type="number" placeholder="e.g. 45" value={form.clauseDate} onChange={(e) => setForm({ ...form, clauseDate: e.target.value })} />
-          <div className="sm:col-span-2 space-y-1.5">
-            <label className="block text-sm font-semibold">Remarks</label>
-            <textarea
-              className="w-full rounded-lg border border-gray-200 px-3.5 py-2.5 text-sm outline-none focus:border-brand-red"
-              rows={3}
-              placeholder="Any additional notes..."
-              value={form.remarks}
-              onChange={(e) => setForm({ ...form, remarks: e.target.value })}
-            />
-          </div>
-          <div className="sm:col-span-2 flex flex-col gap-2 sm:flex-row">
-            <Button
-              type="button"
-              className="flex-1"
-              onClick={() => addCandidate(form, false)}
-            >
-              Save & Add Another
-            </Button>
-            <Button type="submit" variant="secondary" className="flex-1">
-              Save & Close
-            </Button>
-          </div>
-        </form>
-      </Modal>
-
-      {/* Edit Modal */}
-      <Modal open={editOpen} onClose={() => setEditOpen(false)} title="Edit Candidate" wide>
-        <form
-          className="grid gap-3 sm:grid-cols-2"
-          onSubmit={(e) => {
-            e.preventDefault();
-            if (!selected) return;
-            persist(
-              rows.map((x) =>
-                x.id === selected.id
-                  ? {
-                      ...x,
-                      ...form,
-                      languages: form.languages,
-                    }
-                  : x
-              )
-            );
-            setEditOpen(false);
-          }}
-        >
+      {/* Add / Edit modal */}
+      <Modal open={addOpen || !!editRow} onClose={() => { setAddOpen(false); setEditRow(null); }} title={editRow ? "Edit Candidate" : "Add Candidate"} wide>
+        <form className="grid grid-cols-1 gap-3 sm:grid-cols-2" onSubmit={editRow ? saveEdit : addCandidate}>
           <Input label="Name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
           <Input label="Phone" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} required />
-          <Input label="Email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
-          <Input label="Process / Company" value={form.process} onChange={(e) => setForm({ ...form, process: e.target.value })} />
-          <Input label="CTC" value={form.ctc} onChange={(e) => setForm({ ...form, ctc: e.target.value })} />
-          <Input label="Take-home" value={form.takeHome} onChange={(e) => setForm({ ...form, takeHome: e.target.value })} />
+          <Select label="IT / Non-IT" value={form.itType} onChange={(e) => setForm({ ...form, itType: e.target.value })} options={IT_OPTIONS.map((o) => ({ value: o, label: o }))} />
+          <Input label="Email" type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
+          <Input label="Qualification" value={form.qualification} onChange={(e) => setForm({ ...form, qualification: e.target.value })} />
+          <Select label="Languages (primary)" value={form.languages[0] ?? "English"} onChange={(e) => setForm({ ...form, languages: [e.target.value] })} options={LANGUAGES.map((o) => ({ value: o, label: o }))} />
+          <Select label="Location" value={form.location} onChange={(e) => setForm({ ...form, location: e.target.value })} options={LOCATIONS.map((o) => ({ value: o, label: o }))} />
+          <Input label="Remarks" value={form.remarks} onChange={(e) => setForm({ ...form, remarks: e.target.value })} />
+          <Select label="Status" value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })} options={CRM_STATUSES.map((o) => ({ value: o, label: o }))} />
+          <Select label="Process / Company" value={form.process || "Other"} onChange={(e) => setForm({ ...form, process: e.target.value })} options={PROCESS_OPTIONS.map((o) => ({ value: o, label: o }))} />
+          <Select label="Shortlisted" value={form.shortlisted} onChange={(e) => setForm({ ...form, shortlisted: e.target.value })} options={SHORTLIST_OPTIONS.map((o) => ({ value: o, label: o }))} />
           <Input label="Interview Date" type="date" value={form.interviewDate} onChange={(e) => setForm({ ...form, interviewDate: e.target.value })} />
-          <Input label="DOJ" type="date" value={form.doj} onChange={(e) => setForm({ ...form, doj: e.target.value })} />
-          <Input label="Invoice Date" type="date" value={form.invoiceDate} onChange={(e) => setForm({ ...form, invoiceDate: e.target.value })} />
-          <Input label="Clause Days" type="number" placeholder="e.g. 45" value={form.clauseDate} onChange={(e) => setForm({ ...form, clauseDate: e.target.value })} />
+          <Input label="Date of Joining" type="date" value={form.doj} onChange={(e) => setForm({ ...form, doj: e.target.value })} />
           <div className="sm:col-span-2">
-            <Input label="Remarks" value={form.remarks} onChange={(e) => setForm({ ...form, remarks: e.target.value })} />
-          </div>
-          <div className="sm:col-span-2">
-            <Button type="submit" className="w-full">
-              Update Candidate
-            </Button>
+            <Button type="submit" className="w-full">{editRow ? "Save Changes" : "Add Candidate"}</Button>
           </div>
         </form>
-      </Modal>
-
-      {/* View Modal */}
-      <Modal open={viewOpen} onClose={() => setViewOpen(false)} title="Candidate Details" wide>
-        {selected && (
-          <div className="grid gap-3 text-sm sm:grid-cols-2">
-            <p><span className="font-semibold">Name:</span> {selected.name}</p>
-            <p><span className="font-semibold">Phone:</span> {selected.phone}</p>
-            <p><span className="font-semibold">Email:</span> {selected.email || "—"}</p>
-            <p><span className="font-semibold">Location:</span> {selected.location}</p>
-            <p><span className="font-semibold">Process:</span> {selected.process}</p>
-            <p><span className="font-semibold">Status:</span> {selected.status}</p>
-            <p><span className="font-semibold">CTC:</span> {selected.ctc || "—"}</p>
-            <p><span className="font-semibold">Take-home:</span> {selected.takeHome || "—"}</p>
-            <p><span className="font-semibold">Interview:</span> {selected.interviewDate || "—"}</p>
-            <p><span className="font-semibold">DOJ:</span> {selected.doj || "—"}</p>
-            <p><span className="font-semibold">Invoice:</span> {selected.invoiceDate || "—"}</p>
-            <p><span className="font-semibold">Clause Days:</span> {selected.clauseDate ? `${selected.clauseDate} days` : "—"}</p>
-            <p className="sm:col-span-2"><span className="font-semibold">Languages:</span> {selected.languages.join(", ")}</p>
-            <p className="sm:col-span-2"><span className="font-semibold">Remarks:</span> {selected.remarks || "—"}</p>
-            <p className="sm:col-span-2">
-              <span className="font-semibold">Timer since added:</span>{" "}
-              {formatElapsed(selected.addedAt, now)}
-            </p>
-          </div>
-        )}
-      </Modal>
-
-      <Modal open={importOpen} onClose={() => setImportOpen(false)} title="Import Candidates">
-        <p className="mb-4 text-sm text-gray-500">
-          Upload CSV/Excel with Name, Phone, Email, Languages, Location columns.
-        </p>
-        <Input type="file" accept=".csv,.xlsx,.xls" />
-        <Button className="mt-4 w-full" onClick={() => setImportOpen(false)}>
-          Import File
-        </Button>
       </Modal>
     </div>
   );

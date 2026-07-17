@@ -3,6 +3,7 @@
 import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { useUserLabel } from "@/hooks/useAuth";
+import { CrmSnapshot } from "@/components/dashboard/CrmSnapshot";
 import { daysAway, holidays, weeklyChart } from "@/lib/mock-data";
 import { formatDate } from "@/lib/utils";
 import {
@@ -58,6 +59,8 @@ export default function CandidateDashboardPage() {
         <StatCard label="This Week" value="38h 10m" color="text-emerald-600" />
         <StatCard label="This Month" value="142h 00m" color="text-orange-600" />
       </div>
+
+      <CrmSnapshot title="My CRM Summary" />
 
       <div className="grid gap-4 lg:grid-cols-3">
         <Card className="lg:col-span-2">

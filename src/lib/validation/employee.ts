@@ -92,6 +92,8 @@ export function validateEmployee(
     panNumber: pan ? pan.toUpperCase() : null,
     aadhaarNumber: aadhaar ? aadhaar.replace(/\s/g, "") : null,
     crmEnabled: Boolean(body.crmEnabled),
+    monthlyCtc: body.monthlyCtc === undefined || body.monthlyCtc === null || body.monthlyCtc === "" ? null : Number(body.monthlyCtc),
+    takeHome: body.takeHome === undefined || body.takeHome === null || body.takeHome === "" ? null : Number(body.takeHome),
   };
 
   return { ok: true, errors: {}, data };

@@ -50,6 +50,8 @@ export type CRMCandidate = {
   interviewDate: string;
   doj: string;
   remarks: string;
+  itType?: string;
+  qualification?: string;
   calls: number;
   ctc: string;
   takeHome: string;

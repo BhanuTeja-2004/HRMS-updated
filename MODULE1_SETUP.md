@@ -64,3 +64,40 @@ What was added:
 - **CRM**: "Clause Date" → "Clause Days"; exact "Added On" timestamp column; selected-candidates "Selected Date" → "Invoice Date".
 
 Chain: **Employee → Payroll → Payslip** — bank/PAN/Aadhaar/DOJ auto-flow from Employee into the Payslip.
+
+---
+
+# Module 3 — Invoice Reminder System
+
+New models: **Invoice**, **Reminder**. Run:
+
+```bash
+npx prisma migrate dev --name module3_invoices
+npx prisma generate
+```
+
+- Invoice status logic in `src/lib/invoice-status.ts`: DOJ + Clause Days = Invoice Date; RED (not reached) / GREEN (reached today) / PURPLE (raised).
+- APIs: `/api/invoices` (list + Today/Upcoming/Overdue/Raised summary), `/api/invoices/[id]` (raise / edit).
+- **Selected Candidates**: new Invoice Status column with RED/GREEN/PURPLE badge, Generate (DOJ+clause) / Today buttons, and an editable dropdown to raise (Green → Purple).
+- **Admin Dashboard**: Invoice Reminders widget (Due Today / Overdue / Upcoming / Raised + list of invoices to raise).
+
+---
+
+# Modules 4–12 — CRM, Employee salary/docs, Payroll bonus, Vendors, Dashboards
+
+New models: **EmployeeDocument, Vendor, VendorDocument, Candidate**; **Payroll.bonus**, **Employee.takeHome**. Run:
+
+```bash
+npx prisma migrate dev --name module4_12
+npx prisma generate
+```
+
+New APIs: `/api/vendors`(+[id]), `/api/vendor-documents`(+[id]), `/api/employee-documents`(+[id]), `/api/candidates`(+[id]), `/api/reminders`. Payslip API now supports `?employeeId=&approved=1` for candidate downloads.
+
+Highlights:
+- **CRM (candidate)**: new column order (Serial, Name, Phone, IT/Non-IT, Email, Qualification, Languages, Location, Remarks, Status, Process, Shortlisted, Interview, DOJ, Added On), inline editable dropdowns + Edit modal, summary cards (Calls Today / Shortlisted Today / Interviewed Today / Scheduled Interviews / Joined This Month), export removed.
+- **Employee form**: Salary (Monthly CTC) + Take Home added, Branch removed; Employee Documents upload (Agreement/Offer Letter/Contract/Other, multiple) on the edit page.
+- **Payroll**: Bonus field with auto Net; candidate portal shows approved payslips as downloadable PDFs.
+- **Vendors**: Company/Contact/Website/Location/Clause Days + document/agreement upload; Clause Date removed.
+- **Candidate dashboard**: CRM summary cards (Calls Today, Scheduled Interviews, Selected, Joined). Candidate payroll: Net Pay/Records/Bank removed. Candidate job openings: Clause Date removed.
+- **Admin dashboard**: CRM Activity cards, Invoice Reminders, HR Performance (click an HR to expand metrics), Employee Count & Live status.

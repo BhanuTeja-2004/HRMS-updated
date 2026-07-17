@@ -18,7 +18,7 @@ export default function CandidateJobOpeningsPage() {
       <div>
         <h2 className="text-2xl font-bold text-gray-900">Job Openings</h2>
         <p className="text-sm text-gray-500">
-          Available roles — CTC, take-home, invoice & clause dates included.
+          Available roles with process, location, language, CTC, take-home & skills.
         </p>
       </div>
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
@@ -62,7 +62,6 @@ export default function CandidateJobOpeningsPage() {
             <p><span className="font-semibold">CTC:</span> {selected.ctc}</p>
             <p><span className="font-semibold">Take Home:</span> ₹{selected.takeHome}</p>
             <p><span className="font-semibold">Invoice Date:</span> {formatDate(selected.invoiceDate)}</p>
-            <p><span className="font-semibold">Clause Date:</span> {formatDate(selected.clauseDate)}</p>
             <div className="sm:col-span-2">
               <p className="font-semibold">Job Description</p>
               <p className="mt-1 text-gray-600">{selected.jd}</p>

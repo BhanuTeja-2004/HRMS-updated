@@ -4,6 +4,9 @@ import { Badge } from "@/components/ui/Badge";
 import { Card } from "@/components/ui/Card";
 import { Table } from "@/components/ui/Table";
 import { employees } from "@/lib/mock-data";
+import { InvoiceReminders } from "@/components/dashboard/InvoiceReminders";
+import { CrmSnapshot } from "@/components/dashboard/CrmSnapshot";
+import { HRPerformance } from "@/components/dashboard/HRPerformance";
 
 export default function AdminDashboardPage() {
   const loggedIn = employees.filter((e) => e.status === "Logged In").length;
@@ -40,6 +43,12 @@ export default function AdminDashboardPage() {
           <p className="mt-1 text-3xl font-bold text-gray-600">{loggedOut}</p>
         </Card>
       </div>
+
+      <CrmSnapshot title="CRM Activity" />
+
+      <InvoiceReminders />
+
+      <HRPerformance />
 
       <div>
         <h3 className="mb-3 text-base font-semibold">Live Employee Status</h3>

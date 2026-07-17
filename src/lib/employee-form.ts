@@ -18,6 +18,8 @@ export const emptyEmployeeForm: EmployeeInput = {
   panNumber: "",
   aadhaarNumber: "",
   crmEnabled: false,
+  monthlyCtc: null,
+  takeHome: null,
 };
 
 /** Convert an API employee record into editable form values. */
@@ -38,6 +40,8 @@ export function toFormValues(e: {
   panNumber: string | null;
   aadhaarNumber: string | null;
   crmEnabled: boolean;
+  monthlyCtc?: number | null;
+  takeHome?: number | null;
 }): EmployeeInput {
   return {
     employeeId: e.employeeId,
@@ -56,5 +60,7 @@ export function toFormValues(e: {
     panNumber: e.panNumber ?? "",
     aadhaarNumber: e.aadhaarNumber ?? "",
     crmEnabled: e.crmEnabled,
+    monthlyCtc: e.monthlyCtc ?? null,
+    takeHome: e.takeHome ?? null,
   };
 }

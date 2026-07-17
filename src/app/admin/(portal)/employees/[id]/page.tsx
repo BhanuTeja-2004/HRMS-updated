@@ -1,6 +1,7 @@
 "use client";
 
 import { EmployeeForm } from "@/components/employees/EmployeeForm";
+import { DocumentManager } from "@/components/documents/DocumentManager";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Card, CardTitle } from "@/components/ui/Card";
@@ -135,9 +136,15 @@ function EmployeeDetail() {
               <Field label="Bank Name" value={emp.bankName} />
               <Field label="Account Number" value={emp.accountNumber} />
               <Field label="IFSC" value={emp.ifsc} />
-              <Field label="Branch" value={emp.branch} />
               <Field label="PAN Number" value={emp.panNumber} />
               <Field label="Aadhaar Number" value={emp.aadhaarNumber} />
+            </div>
+          </Card>
+          <Card className="space-y-4">
+            <CardTitle>Salary</CardTitle>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <Field label="Monthly Salary / CTC" value={emp.monthlyCtc != null ? `₹${emp.monthlyCtc.toLocaleString("en-IN")}` : "-"} />
+              <Field label="Take Home Salary" value={emp.takeHome != null ? `₹${emp.takeHome.toLocaleString("en-IN")}` : "-"} />
             </div>
           </Card>
           <Card>
@@ -166,6 +173,16 @@ function EmployeeDetail() {
             </div>
           </form>
         </Card>
+      )}
+
+      {!viewMode && (
+        <DocumentManager
+          title="Employee Documents"
+          endpoint="/api/employee-documents"
+          ownerKey="employeeId"
+          ownerId={emp.id}
+          categories={["Agreement", "Offer Letter", "Contract", "Other"]}
+        />
       )}
     </div>
   );

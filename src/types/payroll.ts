@@ -14,6 +14,7 @@ export interface Payroll {
   deductions: number;
   gross: number;
   net: number;
+  bonus: number;
   status: string;
   remarks: string | null;
   createdAt: string;
